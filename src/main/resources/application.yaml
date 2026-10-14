@@ -1,0 +1,52 @@
+server:
+  port: 8081
+  servlet:
+    context-path: /api/v1
+
+spring:
+  config:
+    import: optional:file:.env[.properties]
+  application:
+    name: storevn
+  datasource:
+    url: ${STORE_DB_URL:jdbc:postgresql://localhost:5433/store}
+    username: ${STORE_DB_USER:postgres}
+    password: ${STORE_DB_PASSWORD:}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+catalog:
+  datasource:
+    url: ${CATALOG_DB_URL:jdbc:postgresql://localhost:5432/mvno_plan}
+    username: ${CATALOG_DB_USER:store_readonly}
+    password: ${CATALOG_DB_PASSWORD:}
+
+vnpay:
+  tmn-code: ${VNPAY_TMN_CODE:}
+  hash-secret: ${VNPAY_HASH_SECRET:}
+  pay-url: ${VNPAY_PAY_URL:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+  api-url: ${VNPAY_API_URL:https://sandbox.vnpayment.vn/merchant_webapi/api/transaction}
+
+storefront:
+  public-base-url: ${STOREFRONT_PUBLIC_BASE_URL:http://localhost:8081}
+  web-url: ${STOREFRONT_WEB_URL:http://localhost:5173}
+  order-ttl-minutes: ${ORDER_TTL_MINUTES:30}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html

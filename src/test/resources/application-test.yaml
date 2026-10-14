@@ -1,0 +1,26 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:store;MODE=PostgreSQL
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  flyway:
+    enabled: false
+
+catalog:
+  datasource:
+    url: jdbc:h2:mem:catalog;MODE=PostgreSQL
+    username: sa
+    password:
+
+vnpay:
+  tmn-code: TESTCODE
+  hash-secret: TESTSECRETKEY0123456789
+  pay-url: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+  api-url: https://sandbox.vnpayment.vn/merchant_webapi/api/transaction
+
+storefront:
+  public-base-url: http://localhost:8081
+  web-url: http://localhost:5173
+  order-ttl-minutes: 30
