@@ -1,30 +1,38 @@
 package org.example.storevn.catalog;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.storevn.dto.response.StorePlanResponse;
+import org.example.storevn.dto.response.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Read-only repository querying the admin database catalog via JdbcClient.
+ * Enriches plans with optional bonus, app quota, and voice allowances based on CatalogAvailability.
  */
 @Repository
 @Slf4j
 public class PlanCatalogRepository {
 
     private final JdbcClient catalogJdbcClient;
+    private final CatalogAvailability availability;
 
-    public PlanCatalogRepository(@Qualifier("catalogJdbcClient") JdbcClient catalogJdbcClient) {
+    @Autowired
+    public PlanCatalogRepository(
+            @Qualifier("catalogJdbcClient") JdbcClient catalogJdbcClient,
+            CatalogAvailability availability) {
         this.catalogJdbcClient = catalogJdbcClient;
+        this.availability = availability;
+    }
+
+    public PlanCatalogRepository(JdbcClient catalogJdbcClient) {
+        this(catalogJdbcClient, new CatalogAvailability(false, false, false));
     }
 
     private static final RowMapper<StorePlanResponse> PLAN_ROW_MAPPER = (rs, rowNum) -> {
@@ -50,7 +58,7 @@ public class PlanCatalogRepository {
     };
 
     /**
-     * Lists active plans with optional duration filter and price sorting.
+     * Lists active plans with optional duration filter and price sorting, enriched with benefits.
      */
     public List<StorePlanResponse> findActivePlans(Integer durationMonths, String sortOrder) {
         String direction = "desc".equalsIgnoreCase(sortOrder) ? "DESC" : "ASC";
@@ -63,14 +71,16 @@ public class PlanCatalogRepository {
                 ORDER BY price %s, id ASC
                 """.formatted(direction);
 
-        return catalogJdbcClient.sql(sql)
+        List<StorePlanResponse> plans = catalogJdbcClient.sql(sql)
                 .param("durationMonths", durationMonths)
                 .query(PLAN_ROW_MAPPER)
                 .list();
+
+        return enrich(plans);
     }
 
     /**
-     * Finds an active plan by its unique code.
+     * Finds an active plan by its unique code, enriched with benefits.
      */
     public Optional<StorePlanResponse> findActiveByCode(String code) {
         String sql = """
@@ -80,9 +90,133 @@ public class PlanCatalogRepository {
                 WHERE is_active = true AND code = :code
                 """;
 
-        return catalogJdbcClient.sql(sql)
+        Optional<StorePlanResponse> planOpt = catalogJdbcClient.sql(sql)
                 .param("code", code)
                 .query(PLAN_ROW_MAPPER)
                 .optional();
+
+        planOpt.ifPresent(plan -> enrich(List.of(plan)));
+        return planOpt;
+    }
+
+    /**
+     * Enriches plans with optional bonuses, app quotas, and voice allowances.
+     */
+    private List<StorePlanResponse> enrich(List<StorePlanResponse> plans) {
+        if (plans == null || plans.isEmpty()) {
+            return plans;
+        }
+
+        List<Long> planIds = plans.stream().map(StorePlanResponse::getId).toList();
+
+        Map<Long, List<PlanBonusDto>> bonusMap = (availability != null && availability.isBonusAvailable())
+                ? loadBonuses(planIds) : Map.of();
+
+        Map<Long, List<PlanAppQuotaDto>> appQuotaMap = (availability != null && availability.isAppsAvailable())
+                ? loadAppQuotas(planIds) : Map.of();
+
+        Map<Long, List<PlanVoiceAllowanceDto>> voiceMap = (availability != null && availability.isVoiceAvailable())
+                ? loadVoiceAllowances(planIds) : Map.of();
+
+        for (StorePlanResponse plan : plans) {
+            List<PlanBonusDto> bonuses = bonusMap.getOrDefault(plan.getId(), List.of());
+            List<PlanAppQuotaDto> appQuotas = appQuotaMap.getOrDefault(plan.getId(), List.of());
+            List<PlanVoiceAllowanceDto> voiceAllowances = voiceMap.getOrDefault(plan.getId(), List.of());
+
+            plan.setFirstCycleBonuses(bonuses);
+            plan.setAppQuotas(appQuotas);
+            plan.setVoiceAllowances(voiceAllowances);
+
+            plan.setBenefits(PlanBenefitsDto.builder()
+                    .bonuses(bonuses)
+                    .appQuotas(appQuotas)
+                    .voiceAllowances(voiceAllowances)
+                    .build());
+        }
+
+        return plans;
+    }
+
+    private Map<Long, List<PlanBonusDto>> loadBonuses(List<Long> planIds) {
+        String sql = """
+                SELECT plan_id, bonus_type, amount
+                FROM plan_first_cycle_bonus
+                WHERE plan_id IN (:planIds)
+                ORDER BY id ASC
+                """;
+
+        return catalogJdbcClient.sql(sql)
+                .param("planIds", planIds)
+                .query((rs, rowNum) -> new AbstractMap.SimpleEntry<>(
+                        rs.getLong("plan_id"),
+                        PlanBonusDto.builder()
+                                .bonusType(rs.getString("bonus_type"))
+                                .amount(rs.getLong("amount"))
+                                .build()
+                ))
+                .list()
+                .stream()
+                .collect(Collectors.groupingBy(
+                        Map.Entry::getKey,
+                        Collectors.mapping(Map.Entry::getValue, Collectors.toList())
+                ));
+    }
+
+    private Map<Long, List<PlanAppQuotaDto>> loadAppQuotas(List<Long> planIds) {
+        String sql = """
+                SELECT paq.plan_id, paq.app_id, a.code AS app_code, a.name AS app_name, paq.quota_type, paq.quota_mb
+                FROM plan_app_quota paq
+                JOIN app a ON a.id = paq.app_id
+                WHERE paq.plan_id IN (:planIds)
+                ORDER BY paq.id ASC
+                """;
+
+        return catalogJdbcClient.sql(sql)
+                .param("planIds", planIds)
+                .query((rs, rowNum) -> new AbstractMap.SimpleEntry<>(
+                        rs.getLong("plan_id"),
+                        PlanAppQuotaDto.builder()
+                                .appId(rs.getLong("app_id"))
+                                .appCode(rs.getString("app_code"))
+                                .appName(rs.getString("app_name"))
+                                .quotaType(rs.getString("quota_type"))
+                                .quotaMb(rs.getLong("quota_mb"))
+                                .build()
+                ))
+                .list()
+                .stream()
+                .collect(Collectors.groupingBy(
+                        Map.Entry::getKey,
+                        Collectors.mapping(Map.Entry::getValue, Collectors.toList())
+                ));
+    }
+
+    private Map<Long, List<PlanVoiceAllowanceDto>> loadVoiceAllowances(List<Long> planIds) {
+        String sql = """
+                SELECT pva.plan_id, pva.network_id, n.code AS network_code, n.name AS network_name, pva.minutes
+                FROM plan_voice_allowance pva
+                JOIN network n ON n.id = pva.network_id
+                WHERE pva.plan_id IN (:planIds)
+                ORDER BY pva.id ASC
+                """;
+
+        return catalogJdbcClient.sql(sql)
+                .param("planIds", planIds)
+                .query((rs, rowNum) -> new AbstractMap.SimpleEntry<>(
+                        rs.getLong("plan_id"),
+                        PlanVoiceAllowanceDto.builder()
+                                .networkId(rs.getLong("network_id"))
+                                .networkCode(rs.getString("network_code"))
+                                .networkName(rs.getString("network_name"))
+                                .minutes(rs.getInt("minutes"))
+                                .build()
+                ))
+                .list()
+                .stream()
+                .collect(Collectors.groupingBy(
+                        Map.Entry::getKey,
+                        Collectors.mapping(Map.Entry::getValue, Collectors.toList())
+                ));
     }
 }
+

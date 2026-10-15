@@ -58,13 +58,20 @@ class StorePlanControllerTest {
     }
 
     @Test
-    @DisplayName("GET /store/plans/{code} returns 200 when plan exists")
+    @DisplayName("GET /store/plans/{code} returns 200 with plan details and enriched benefits")
     void getPlanByCode_existingCode_returns200WithPlan() throws Exception {
         StorePlanResponse plan = StorePlanResponse.builder()
                 .id(1L)
                 .code("SKY89")
                 .name("Sky89")
                 .price(89000L)
+                .firstCycleBonuses(List.of(
+                        org.example.storevn.dto.response.PlanBonusDto.builder().bonusType("DATA_MB").amount(5120L).build()))
+                .appQuotas(List.of(
+                        org.example.storevn.dto.response.PlanAppQuotaDto.builder().appCode("TIKTOK").appName("TikTok").quotaMb(1024L).build()))
+                .benefits(org.example.storevn.dto.response.PlanBenefitsDto.builder()
+                        .bonuses(List.of(org.example.storevn.dto.response.PlanBonusDto.builder().bonusType("DATA_MB").amount(5120L).build()))
+                        .build())
                 .build();
 
         when(planCatalogService.getActivePlanByCode("SKY89")).thenReturn(plan);
@@ -74,7 +81,11 @@ class StorePlanControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result.code").value("SKY89"))
-                .andExpect(jsonPath("$.result.name").value("Sky89"));
+                .andExpect(jsonPath("$.result.name").value("Sky89"))
+                .andExpect(jsonPath("$.result.firstCycleBonuses[0].bonusType").value("DATA_MB"))
+                .andExpect(jsonPath("$.result.firstCycleBonuses[0].amount").value(5120))
+                .andExpect(jsonPath("$.result.appQuotas[0].appCode").value("TIKTOK"))
+                .andExpect(jsonPath("$.result.benefits.bonuses[0].bonusType").value("DATA_MB"));
     }
 
     @Test

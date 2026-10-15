@@ -3,6 +3,8 @@ package org.example.storevn.dto.response;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -21,4 +23,17 @@ public class StorePlanResponse {
     Integer voiceMinutes;
     String cutoffPolicy;
     Integer throttleSpeedKbps;
+
+    // ── Nhóm ưu đãi (Benefits) ──
+    @Builder.Default
+    List<PlanBonusDto> firstCycleBonuses = List.of();
+
+    @Builder.Default
+    List<PlanAppQuotaDto> appQuotas = List.of();
+
+    @Builder.Default
+    List<PlanVoiceAllowanceDto> voiceAllowances = List.of();
+
+    PlanBenefitsDto benefits;
 }
+
