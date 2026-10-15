@@ -10,7 +10,7 @@ spring:
 
 catalog:
   datasource:
-    url: jdbc:h2:mem:catalog;MODE=PostgreSQL
+    url: jdbc:h2:mem:catalog;DB_CLOSE_DELAY=-1;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;INIT=RUNSCRIPT FROM './src/test/resources/admin-schema/catalog-test-schema.sql'
     username: sa
     password:
 
