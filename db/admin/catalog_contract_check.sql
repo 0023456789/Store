@@ -1,0 +1,25 @@
+-- catalog_contract_check.sql
+-- Reference: columns the storefront expects in the admin database.
+-- This is NOT executed as a migration; it is checked programmatically at startup
+-- via CatalogContractChecker using information_schema queries.
+--
+-- CORE (missing → storefront refuses to start):
+--   plan: id, code, name, description, price, duration_months,
+--         quota_type, data_quota_mb, cutoff_policy, throttle_speed_kbps, is_active
+--
+-- BONUS (missing → bonus section hidden):
+--   plan_first_cycle_bonus: id, plan_id, bonus_type, amount
+--
+-- APPS (missing → app quota section hidden):
+--   plan_app_quota: id, plan_id, app_id, quota_type, quota_mb
+--   app:            id, code, name
+--
+-- VOICE (missing → voice section hidden):
+--   plan_voice_allowance: id, plan_id, network_id, minutes
+--   network:              id, code, name
+--
+-- Notes:
+--   - cycle_days may be NULL on schemas before V4; catalog code defaults to 30.
+--   - The check only inspects column NAMES, not data types.
+--   - On admin schema V1..V5 (current): core and bonus and apps pass; voice fails
+--     (plan_voice_allowance and network tables do not exist yet).

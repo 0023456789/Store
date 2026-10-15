@@ -22,3 +22,5 @@ Thumbs.db
 ### Node (web/) ###
 web/node_modules/
 web/dist/
+/docs/
+.env.example

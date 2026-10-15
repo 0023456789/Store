@@ -19,11 +19,10 @@ class CatalogContractCheckerUnitTest {
     private JdbcClient jdbcClient;
 
     @BeforeEach
-    void setup() throws Exception {
-        // Create an embedded H2 database
+    void setup() {
         dataSource = new EmbeddedDatabaseBuilder()
+                .generateUniqueName(true)
                 .setType(EmbeddedDatabaseType.H2)
-                .setName("catalog_unit_test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE")
                 .build();
         jdbcClient = JdbcClient.create(dataSource);
     }
