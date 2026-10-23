@@ -31,9 +31,6 @@ public class StorePlanResponse {
     @Builder.Default
     List<PlanAppQuotaDto> appQuotas = List.of();
 
-    @Builder.Default
-    List<PlanVoiceAllowanceDto> voiceAllowances = List.of();
-
     PlanBenefitsDto benefits;
 }
 

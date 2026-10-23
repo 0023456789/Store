@@ -4,10 +4,13 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.example.storevn.enums.OrderStatus;
+import org.hibernate.annotations.DynamicUpdate;
 
 import java.time.Instant;
 
 @Entity
+// Khi cập nhật trạng thái đơn, Hibernate chỉ ghi các cột đã thay đổi thay vì ghi lại cả bản ghi.
+@DynamicUpdate
 @Table(name = "store_order")
 @Getter
 @Setter
@@ -18,10 +21,10 @@ import java.time.Instant;
 public class StoreOrder extends BaseAuditEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    java.util.UUID id;
 
-    @Column(name = "order_code", nullable = false, unique = true, length = 20)
+    @Column(name = "order_code", nullable = false, unique = true, length = 35)
     String orderCode;
 
     @Column(name = "plan_id", nullable = false)

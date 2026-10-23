@@ -14,15 +14,18 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.validation.FieldError;
 import java.util.List;
 import java.util.Map;
+import jakarta.servlet.http.HttpServletRequest;
 
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(AppException.class)
-    public ResponseEntity<ApiResponse<Object>> handleAppException(AppException exception) {
+    public ResponseEntity<ApiResponse<Object>> handleAppException(AppException exception, HttpServletRequest request) {
         ErrorCode error = exception.getErrorCode();
+        logApiFailure(request, error, error.getMessage());
         ApiResponse<Object> body = ApiResponse.<Object>builder()
+                .status(error.getStatusCode().value())
                 .code(error.getCode())
                 .message(exception.getMessage())
                 .result(exception.getDetails())
@@ -31,28 +34,33 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<List<FieldErrorResponse>>> handleValidation(MethodArgumentNotValidException exception) {
+    public ResponseEntity<ApiResponse<List<FieldErrorResponse>>> handleValidation(
+            MethodArgumentNotValidException exception, HttpServletRequest request) {
         List<FieldErrorResponse> fieldErrors = exception.getBindingResult().getFieldErrors().stream()
                 .map(this::fieldErrorResponse).toList();
+        log.warn("API validation failed: method={} path={} fields={}", request.getMethod(), request.getRequestURI(),
+                fieldErrors.stream().map(FieldErrorResponse::getField).distinct().toList());
         FieldErrorResponse first = fieldErrors.isEmpty()
                 ? FieldErrorResponse.builder().field("request").code(ErrorCode.INVALID_KEY.getCode())
                     .message(ErrorCode.INVALID_KEY.getMessage()).build()
                 : fieldErrors.getFirst();
         ApiResponse<List<FieldErrorResponse>> body = ApiResponse.<List<FieldErrorResponse>>builder()
-                .code(first.getCode()).message(first.getMessage()).result(fieldErrors).build();
+                .status(400).code(first.getCode()).message(first.getMessage()).result(fieldErrors).build();
         return ResponseEntity.badRequest().body(body);
     }
 
     @ExceptionHandler({ConstraintViolationException.class, MethodArgumentTypeMismatchException.class,
             HttpMessageNotReadableException.class})
-    public ResponseEntity<ApiResponse<Void>> handleInvalidInput(Exception exception) {
-        log.debug("Invalid request: {}", exception.getMessage());
+    public ResponseEntity<ApiResponse<Void>> handleInvalidInput(Exception exception, HttpServletRequest request) {
+        log.warn("API input could not be parsed: method={} path={} exception={}",
+                request.getMethod(), request.getRequestURI(), exception.getClass().getSimpleName());
         return error(ErrorCode.INVALID_KEY, ErrorCode.INVALID_KEY.getMessage());
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<Void>> handleUnexpected(Exception exception) {
-        log.error("Unhandled {}: {}", exception.getClass().getName(), exception.getMessage(), exception);
+    public ResponseEntity<ApiResponse<Void>> handleUnexpected(Exception exception, HttpServletRequest request) {
+        log.error("Unhandled API error: method={} path={} exception={} message={}", request.getMethod(),
+                request.getRequestURI(), exception.getClass().getName(), exception.getMessage(), exception);
         ErrorCode error = ErrorCode.UNCATEGORIZED_EXCEPTION;
         return error(error, error.getMessage());
     }
@@ -78,7 +86,18 @@ public class GlobalExceptionHandler {
     }
 
     private ResponseEntity<ApiResponse<Void>> error(ErrorCode errorCode, String message) {
-        ApiResponse<Void> body = ApiResponse.<Void>builder().code(errorCode.getCode()).message(message).build();
+        ApiResponse<Void> body = ApiResponse.<Void>builder().status(errorCode.getStatusCode().value())
+                .code(errorCode.getCode()).message(message).build();
         return ResponseEntity.status(errorCode.getStatusCode()).body(body);
+    }
+
+    private void logApiFailure(HttpServletRequest request, ErrorCode error, String message) {
+        if (error.getStatusCode().is5xxServerError()) {
+            log.error("API request failed: method={} path={} status={} errorCode={} message={}",
+                    request.getMethod(), request.getRequestURI(), error.getStatusCode().value(), error.getCode(), message);
+            return;
+        }
+        log.warn("API request rejected: method={} path={} status={} errorCode={} message={}",
+                request.getMethod(), request.getRequestURI(), error.getStatusCode().value(), error.getCode(), message);
     }
 }

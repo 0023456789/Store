@@ -19,8 +19,14 @@ Thumbs.db
 ### Environment ###
 .env
 
+### Temporary Office files ###
+~$*
+
 ### Node (web/) ###
 web/node_modules/
 web/dist/
 /docs/
-.env.example
+/STOREVN_MANUAL.md
+/run-tests.ps1
+/vnpay-demo.zip
+/guild.md

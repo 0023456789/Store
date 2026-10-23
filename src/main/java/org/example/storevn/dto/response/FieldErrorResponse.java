@@ -2,6 +2,7 @@ package org.example.storevn.dto.response;
 
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 @Data
 @Builder
@@ -10,6 +11,8 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class FieldErrorResponse {
     String field;
-    int code;
+
+    @Schema(description = "Mã lỗi nghiệp vụ dạng chữ", example = "MSISDN_INVALID")
+    String code;
     String message;
 }

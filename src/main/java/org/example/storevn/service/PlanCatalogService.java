@@ -2,7 +2,7 @@ package org.example.storevn.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.storevn.catalog.PlanCatalogRepository;
+import org.example.storevn.catalog.AdminSkyCatalogClient;
 import org.example.storevn.dto.response.StorePlanResponse;
 import org.example.storevn.exception.AppException;
 import org.example.storevn.exception.ErrorCode;
@@ -15,14 +15,14 @@ import java.util.List;
 @Slf4j
 public class PlanCatalogService {
 
-    private final PlanCatalogRepository planCatalogRepository;
+    private final AdminSkyCatalogClient catalogClient;
 
     public List<StorePlanResponse> getActivePlans(Integer durationMonths, String sort) {
-        return planCatalogRepository.findActivePlans(durationMonths, sort);
+        return catalogClient.findActivePlans(durationMonths, sort);
     }
 
     public StorePlanResponse getActivePlanByCode(String code) {
-        return planCatalogRepository.findActiveByCode(code)
+        return catalogClient.findActiveByCode(code)
                 .orElseThrow(() -> new AppException(ErrorCode.PLAN_NOT_FOUND));
     }
 }

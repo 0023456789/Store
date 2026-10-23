@@ -53,10 +53,24 @@ class StorePlanControllerTest {
                         .param("sort", "asc")
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
                 .andExpect(jsonPath("$.message").value("Success"))
                 .andExpect(jsonPath("$.result[0].code").value("SKY89"))
                 .andExpect(jsonPath("$.result[0].price").value(89000));
+    }
+
+    @Test
+    @DisplayName("GET /store/plans with no active plans returns explicit empty-state message")
+    void getPlans_emptyList_returnsNoPlansMessage() throws Exception {
+        when(planCatalogService.getActivePlans(null, "asc")).thenReturn(List.of());
+
+        mockMvc.perform(get("/store/plans").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.message").value("Hiện tại chưa có gói cước khả dụng"))
+                .andExpect(jsonPath("$.result").isEmpty());
     }
 
     @Test
@@ -81,7 +95,8 @@ class StorePlanControllerTest {
         mockMvc.perform(get("/store/plans/SKY89")
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
                 .andExpect(jsonPath("$.result.code").value("SKY89"))
                 .andExpect(jsonPath("$.result.name").value("Sky89"))
                 .andExpect(jsonPath("$.result.firstCycleBonuses[0].bonusType").value("DATA_MB"))
@@ -99,7 +114,8 @@ class StorePlanControllerTest {
         mockMvc.perform(get("/store/plans/NONEXISTENT")
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value(2001))
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.code").value("PLAN_NOT_FOUND"))
                 .andExpect(jsonPath("$.message").value("Plan not found"));
     }
 }

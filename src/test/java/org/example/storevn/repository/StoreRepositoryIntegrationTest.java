@@ -1,7 +1,7 @@
 package org.example.storevn.repository;
 
 import org.example.storevn.entity.PaymentAttempt;
-import org.example.storevn.entity.PaymentEvent;
+import org.example.storevn.entity.PaymentLog;
 import org.example.storevn.entity.StoreOrder;
 import org.example.storevn.enums.OrderStatus;
 import org.example.storevn.enums.PaymentConfirmedVia;
@@ -33,7 +33,7 @@ class StoreRepositoryIntegrationTest {
     private PaymentAttemptRepository paymentAttemptRepository;
 
     @Autowired
-    private PaymentEventRepository paymentEventRepository;
+    private PaymentLogRepository paymentLogRepository;
 
     private StoreOrder createSampleOrder(String orderCode, String phone, OrderStatus status, Instant expiresAt) {
         return StoreOrder.builder()
@@ -134,23 +134,29 @@ class StoreRepositoryIntegrationTest {
     }
 
     @Test
-    @DisplayName("save PaymentEvent persists raw payload and metadata")
-    void save_paymentEvent_persistsRawPayload() {
-        PaymentEvent event = PaymentEvent.builder()
+    @DisplayName("save PaymentLog persists raw payload and forensic audit metadata")
+    void save_paymentLog_persistsRawPayload() {
+        PaymentLog log = PaymentLog.builder()
                 .source(PaymentEventSource.IPN)
                 .txnRef("TXN202610160002")
+                .vnpTransactionNo("14123456")
+                .amount(89000L)
+                .vnpResponseCode("00")
+                .vnpBankCode("NCB")
                 .signatureValid(true)
                 .rspCode("00")
-                .payload("{\"vnp_ResponseCode\":\"00\",\"vnp_Amount\":\"8900000\"}")
+                .rawPayload("{\"vnp_ResponseCode\":\"00\",\"vnp_Amount\":\"8900000\"}")
                 .build();
 
-        PaymentEvent saved = paymentEventRepository.saveAndFlush(event);
+        PaymentLog saved = paymentLogRepository.saveAndFlush(log);
         assertNotNull(saved.getId());
-        assertNotNull(saved.getReceivedAt());
+        assertNotNull(saved.getCreatedAt());
 
-        List<PaymentEvent> events = paymentEventRepository.findByTxnRef("TXN202610160002");
-        assertEquals(1, events.size());
-        assertEquals("00", events.get(0).getRspCode());
-        assertTrue(events.get(0).getPayload().contains("8900000"));
+        List<PaymentLog> logs = paymentLogRepository.findByTxnRef("TXN202610160002");
+        assertEquals(1, logs.size());
+        assertEquals("00", logs.get(0).getRspCode());
+        assertEquals("14123456", logs.get(0).getVnpTransactionNo());
+        assertEquals(89000L, logs.get(0).getAmount());
+        assertTrue(logs.get(0).getRawPayload().contains("8900000"));
     }
 }

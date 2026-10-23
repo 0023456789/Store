@@ -8,9 +8,7 @@ import lombok.experimental.FieldDefaults;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class PlanVoiceAllowanceDto {
-    Long networkId;
-    String networkCode;
-    String networkName;
-    Integer minutes;
+public class CreatePaymentResponse {
+    String txnRef;
+    String paymentUrl;
 }

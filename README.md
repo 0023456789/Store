@@ -1,52 +1,31 @@
-# StoreVN – MVNO Storefront
+# StoreVN
 
-Customer-facing web app for purchasing mobile data plans and paying via VNPAY.
-
-## Tech Stack
-
-- **Backend:** Spring Boot 3.2, Java 21, PostgreSQL, Flyway
-- **Frontend:** React + Vite + TypeScript + Ant Design (planned, in `web/`)
-- **Payment:** VNPAY v2.1.0 (redirect flow)
+Customer-facing storefront for browsing AdminSky mobile plans, creating orders, and paying through VNPAY.
 
 ## Architecture
 
+```text
+Browser -> StoreVN API -> AdminSky Plan API (read catalog)
+                    -> Store DB (orders and payment attempts)
+                    -> VNPAY (payment and reconciliation)
 ```
-Browser ── React ──► Storefront API ──┬──► Admin DB   READ-ONLY (role store_readonly)
-                                      └──► Store DB   read/write (orders, payments)
-```
 
-- **Admin DB** (port 5432): existing plan catalog – storefront only SELECTs via `JdbcClient`
-- **Store DB** (port 5433): orders, payment attempts, payment events – managed by Flyway
+- **AdminSky** owns plan catalog data. StoreVN reads it through `GET /plans` and `GET /plans/{planId}`; it does not connect to or query the AdminSky database.
+- **Store DB** stores storefront orders, payment attempts, and payment logs. Flyway manages this database.
+- **VNPAY** handles redirected payments, IPN callbacks, and QueryDR reconciliation.
+- *Since then, she completely goes off the rails. Although at start, we didn't do it regularly to reduce the possibility of being found out. After 1 months, Beatrice became addicted to my cock so she even serves me more frequent. More quickie in the car, office after everyone left, at the hotel, more business trip. Soon, she got pregnant after 1 month like that, probably my child. And she gets even more lusty when pregnant as she sometimes invited me to her house for sex when her pregnancy is stable.*
 
-## Quick Start
+## Configuration
 
-```bash
-# 1. Start storefront database
+Set `ADMIN_SKY_API_URL` to the AdminSky API base URL, including `/api/v1` (default: `http://localhost:8080/api/v1`). Optional timeout settings are `ADMIN_SKY_API_CONNECT_TIMEOUT_MS` and `ADMIN_SKY_API_READ_TIMEOUT_MS`.
+
+Configure the Store database with `STORE_DB_URL`, `STORE_DB_USER`, and `STORE_DB_PASSWORD`. Configure VNPAY with `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, and the other `VNPAY_*` settings in `application.yaml`.
+
+## Run locally
+
+```powershell
 docker compose up -d
-
-# 2. Configure environment
-copy .env.example .env
-# Fill in CATALOG_DB_PASSWORD and VNPAY credentials
-
-# 3. Run (requires Java 21)
-mvnw spring-boot:run
+./mvnw.cmd spring-boot:run
 ```
 
-**Port:** `8081` · **Context path:** `/api/v1` · **Swagger:** http://localhost:8081/api/v1/swagger-ui.html
-
-## Project Structure
-
-```
-StoreVN/
-├── pom.xml, docker-compose.yml, .env.example
-├── db/admin/            SQL scripts for DBA to run on admin DB
-├── docs/                Detailed plan and SQL drafts
-├── src/main/java/.../storevn/{controller,dto,entity,exception,repository,service,util,vnpay}
-├── src/main/resources/  application.yaml, db/migration/
-├── src/test/
-└── web/                 React app (planned)
-```
-
-## Documentation
-
-See [docs/vnpay-storefront-plan.md](docs/vnpay-storefront-plan.md) for the full implementation plan.
+The backend listens on port `8081` with context path `/api/v1`. AdminSky must be running at the configured API URL.

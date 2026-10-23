@@ -3,8 +3,6 @@ package org.example.storevn.entity;
 import jakarta.persistence.Column;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.MappedSuperclass;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
@@ -30,18 +28,4 @@ public abstract class BaseAuditEntity {
     @Column(name = "updated_at", nullable = false)
     Instant updatedAt;
 
-    @PrePersist
-    protected void onPrePersist() {
-        if (createdAt == null) {
-            createdAt = Instant.now();
-        }
-        if (updatedAt == null) {
-            updatedAt = Instant.now();
-        }
-    }
-
-    @PreUpdate
-    protected void onPreUpdate() {
-        updatedAt = Instant.now();
-    }
 }

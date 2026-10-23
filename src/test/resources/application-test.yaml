@@ -8,19 +8,12 @@ spring:
   flyway:
     enabled: false
 
-catalog:
-  datasource:
-    url: jdbc:h2:mem:catalog;DB_CLOSE_DELAY=-1;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;INIT=RUNSCRIPT FROM './src/test/resources/admin-schema/catalog-test-schema.sql'
-    username: sa
-    password:
-
 vnpay:
   tmn-code: TESTCODE
   hash-secret: TESTSECRETKEY0123456789
   pay-url: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
-  api-url: https://sandbox.vnpayment.vn/merchant_webapi/api/transaction
 
 storefront:
   public-base-url: http://localhost:8081
   web-url: http://localhost:5173
-  order-ttl-minutes: 30
+  order-ttl-minutes: 15

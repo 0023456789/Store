@@ -7,12 +7,12 @@ CREATE TABLE IF NOT EXISTS store_order (
     plan_id         BIGINT        NOT NULL,
     plan_code       VARCHAR(50)   NOT NULL,
     plan_name       VARCHAR(150)  NOT NULL,
-    duration_months SMALLINT      NOT NULL CHECK (duration_months IN (1, 6, 12)),
-    cycle_days      SMALLINT      NOT NULL CHECK (cycle_days > 0),
-    plan_price      NUMERIC(12,0) NOT NULL CHECK (plan_price >= 0),
-    sim_fee         NUMERIC(12,0) NOT NULL DEFAULT 0 CHECK (sim_fee >= 0),
-    discount        NUMERIC(12,0) NOT NULL DEFAULT 0 CHECK (discount >= 0),
-    amount          NUMERIC(12,0) NOT NULL CHECK (amount > 0),
+    duration_months INTEGER       NOT NULL CHECK (duration_months IN (1, 6, 12)),
+    cycle_days      INTEGER       NOT NULL CHECK (cycle_days > 0),
+    plan_price      BIGINT        NOT NULL CHECK (plan_price >= 0),
+    sim_fee         BIGINT        NOT NULL DEFAULT 0 CHECK (sim_fee >= 0),
+    discount        BIGINT        NOT NULL DEFAULT 0 CHECK (discount >= 0),
+    amount          BIGINT        NOT NULL CHECK (amount > 0),
     msisdn          VARCHAR(15)   NOT NULL CHECK (msisdn ~ '^[0-9]{9,15}$'),
     customer_name   VARCHAR(150)  NOT NULL,
     customer_phone  VARCHAR(15)   NOT NULL CHECK (customer_phone ~ '^[0-9]{9,15}$'),
@@ -38,9 +38,9 @@ CREATE TABLE IF NOT EXISTS payment_attempt (
     id                     BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     order_id               BIGINT        NOT NULL REFERENCES store_order (id) ON DELETE RESTRICT,
     txn_ref                VARCHAR(40)   NOT NULL,
-    amount                 NUMERIC(12,0) NOT NULL CHECK (amount > 0),
-    vnp_create_date        CHAR(14)      NOT NULL CHECK (vnp_create_date ~ '^[0-9]{14}$'),
-    vnp_expire_date        CHAR(14)      NOT NULL CHECK (vnp_expire_date ~ '^[0-9]{14}$'),
+    amount                 BIGINT        NOT NULL CHECK (amount > 0),
+    vnp_create_date        VARCHAR(14)   NOT NULL CHECK (vnp_create_date ~ '^[0-9]{14}$'),
+    vnp_expire_date        VARCHAR(14)   NOT NULL CHECK (vnp_expire_date ~ '^[0-9]{14}$'),
     status                 VARCHAR(20)   NOT NULL DEFAULT 'PENDING'
                            CHECK (status IN ('PENDING', 'SUCCESS', 'FAILED', 'EXPIRED')),
     vnp_response_code      VARCHAR(2),
@@ -48,8 +48,8 @@ CREATE TABLE IF NOT EXISTS payment_attempt (
     vnp_transaction_no     VARCHAR(15),
     vnp_bank_code          VARCHAR(20),
     vnp_card_type          VARCHAR(20),
-    vnp_pay_date           CHAR(14),
-    confirmed_via          VARCHAR(10)   CHECK (confirmed_via IN ('IPN', 'QUERYDR')),
+    vnp_pay_date           VARCHAR(14),
+    confirmed_via          VARCHAR(10)   CHECK (confirmed_via IN ('IPN', 'RETURN')),
     created_at             TIMESTAMPTZ   NOT NULL DEFAULT now(),
     updated_at             TIMESTAMPTZ   NOT NULL DEFAULT now(),
     CONSTRAINT uq_payment_attempt_txn_ref UNIQUE (txn_ref),
@@ -60,13 +60,18 @@ CREATE INDEX IF NOT EXISTS idx_payment_attempt_order ON payment_attempt (order_i
 CREATE INDEX IF NOT EXISTS idx_payment_attempt_pending ON payment_attempt (created_at) WHERE status = 'PENDING';
 CREATE UNIQUE INDEX IF NOT EXISTS uq_payment_attempt_one_success ON payment_attempt (order_id) WHERE status = 'SUCCESS';
 
-CREATE TABLE IF NOT EXISTS payment_event (
-    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    source          VARCHAR(10) NOT NULL CHECK (source IN ('IPN', 'RETURN', 'QUERYDR')),
-    txn_ref         VARCHAR(100),
-    signature_valid BOOLEAN     NOT NULL,
-    rsp_code        VARCHAR(2),
-    payload         JSONB       NOT NULL,
-    received_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+CREATE TABLE IF NOT EXISTS payment_logs (
+    id                 BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    source             VARCHAR(10)  NOT NULL CHECK (source IN ('IPN', 'RETURN')),
+    txn_ref            VARCHAR(100),
+    vnp_transaction_no VARCHAR(50),
+    amount             BIGINT,
+    vnp_response_code  VARCHAR(10),
+    vnp_bank_code      VARCHAR(50),
+    signature_valid    BOOLEAN      NOT NULL,
+    rsp_code           VARCHAR(10),
+    raw_payload        JSONB        NOT NULL,
+    created_at         TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_payment_event_txn_ref ON payment_event (txn_ref);
+CREATE INDEX IF NOT EXISTS idx_payment_logs_txn_ref ON payment_logs (txn_ref);
+CREATE INDEX IF NOT EXISTS idx_payment_logs_vnp_txn_no ON payment_logs (vnp_transaction_no);

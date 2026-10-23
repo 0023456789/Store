@@ -5,8 +5,11 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.example.storevn.enums.PaymentConfirmedVia;
 import org.example.storevn.enums.PaymentStatus;
+import org.hibernate.annotations.DynamicUpdate;
 
 @Entity
+// Chỉ phát sinh UPDATE cho các trường thay đổi, hữu ích vì trạng thái thanh toán thường đổi từng phần.
+@DynamicUpdate
 @Table(name = "payment_attempt")
 @Getter
 @Setter
@@ -17,8 +20,8 @@ import org.example.storevn.enums.PaymentStatus;
 public class PaymentAttempt extends BaseAuditEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    java.util.UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id", nullable = false)
@@ -61,4 +64,13 @@ public class PaymentAttempt extends BaseAuditEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "confirmed_via", length = 10)
     PaymentConfirmedVia confirmedVia;
+
+    @Column(name = "reconcile_attempt_count", nullable = false)
+    int reconcileAttemptCount;
+
+    @Column(name = "reconcile_next_attempt_at")
+    java.time.Instant reconcileNextAttemptAt;
+
+    @Column(name = "reconcile_claimed_until")
+    java.time.Instant reconcileClaimedUntil;
 }
